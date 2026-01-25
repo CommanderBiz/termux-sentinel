@@ -14,16 +14,16 @@ try:
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
     db = firestore.client()
-    print("Successfully connected to Firebase.")
+    # print("Successfully connected to Firebase.") # Removed debug
 except Exception as e:
     db = None
-    print(f"Warning: Could not connect to Firebase. {e}")
+    # print(f"Warning: Could not connect to Firebase. {e}") # Removed debug
 
 
 def push_to_firebase(host, hashrate, cpu=None, ram=None):
     """Pushes stats to the Firestore 'miners' collection."""
     if not db:
-        print(f"[{datetime.datetime.now()}] FIREBASE: DB not connected. Skipping push for {host}.")
+        # print(f"[{datetime.datetime.now()}] FIREBASE: DB not connected. Skipping push for {host}.") # Removed debug
         return # Do nothing if Firebase is not connected
 
     doc_ref = db.collection("miners").document(host)
@@ -38,11 +38,11 @@ def push_to_firebase(host, hashrate, cpu=None, ram=None):
         data["ram_usage"] = ram
         
     try:
-        # print(f"[{datetime.datetime.now()}] FIREBASE: Pushing update for {host}: {data}")
         doc_ref.set(data, merge=True)
-        print(f"[{datetime.datetime.now()}] FIREBASE: Successfully pushed update for {host}.")
+        # print(f"[{datetime.datetime.now()}] FIREBASE: Successfully pushed update for {host}.") # Removed debug
     except Exception as e:
-        print(f"[{datetime.datetime.now()}] FIREBASE: ERROR pushing for {host}: {e}")
+        # print(f"[{datetime.datetime.now()}] FIREBASE: ERROR pushing for {host}: {e}") # Removed debug
+        pass # Silently fail for now, or log to a file if needed in the future
 
 
 def get_monero_hashrate(host="127.0.0.1", port=8000):
@@ -64,7 +64,7 @@ def get_monero_hashrate(host="127.0.0.1", port=8000):
 def get_system_status(host, port):
     """Checks a single host and prints/pushes the status."""
     hashrate = get_monero_hashrate(host, port)
-    hashrate_str = f"{hashrate:.2f} H/s" if hashrate is not None else "Offline"
+    # hashrate_str = f"{hashrate:.2f} H/s" if hashrate is not None else "Offline" # Removed debug
     
     cpu_usage = None
     ram_usage = None
@@ -73,10 +73,11 @@ def get_system_status(host, port):
         # Local stats
         cpu_usage = psutil.cpu_percent(interval=1)
         ram_usage = psutil.virtual_memory().percent
-        print(f"[{datetime.datetime.now()}] Host: {host} | CPU: {cpu_usage}% | RAM: {ram_usage}% | Hashrate: {hashrate_str}")
+        # print(f"[{datetime.datetime.now()}] Host: {host} | CPU: {cpu_usage}% | RAM: {ram_usage}% | Hashrate: {hashrate_str}") # Removed debug
     else:
         # Remote stats
-        print(f"[{datetime.datetime.now()}] Host: {host} | Hashrate: {hashrate_str}")
+        # print(f"[{datetime.datetime.now()}] Host: {host} | Hashrate: {hashrate_str}") # Removed debug
+        pass
 
     # Push to cloud
     push_to_firebase(host, hashrate, cpu_usage, ram_usage)
@@ -90,12 +91,12 @@ def scan_network(network_range, port):
         print(f"Error: Invalid network range '{network_range}'. Please use CIDR notation (e.g., 192.168.1.0/24).")
         return
 
-    print(f"[{datetime.datetime.now()}] SCAN: Starting sequential scan of {network_range}...")
+    # print(f"[{datetime.datetime.now()}] SCAN: Starting sequential scan of {network_range}...") # Removed debug
     for ip in network.hosts():
-        print(f"[{datetime.datetime.now()}] SCAN: Checking {ip}")
+        # print(f"[{datetime.datetime.now()}] SCAN: Checking {ip}") # Removed debug
         hashrate = get_monero_hashrate(host=str(ip), port=port)
         push_to_firebase(str(ip), hashrate)
-    print(f"[{datetime.datetime.now()}] SCAN: Finished sequential scan of {network_range}.")
+    # print(f"[{datetime.datetime.now()}] SCAN: Finished sequential scan of {network_range}.") # Removed debug
 
 
 if __name__ == "__main__":
