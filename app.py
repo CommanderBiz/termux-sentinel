@@ -2,8 +2,8 @@ import streamlit as st
 import time
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.cloud.firestore_v1.base_query import FieldFilter
 import os
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 def get_firestore_client():
     try:
@@ -16,7 +16,8 @@ def get_firestore_client():
         db = firestore.client()
         return db
     except Exception as e:
-        st.error(f"Credential Error: {e}")
+        st.error(f"An error occurred while connecting to Firestore: {e}")
+        st.info("Please make sure the 'serviceAccountKey.json' file is in the root directory and is valid.")
         return None
 
 def main():
