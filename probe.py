@@ -136,7 +136,9 @@ def scan_network(network_range, port, daemon_mode=False):
         print("---------------------")
 
 
+import sys
 if __name__ == "__main__":
+    print(f"DEBUG: sys.argv = {sys.argv}")
     parser = argparse.ArgumentParser(description="System and Monero miner status probe.")
     parser.add_argument("--host", help="Hostname or IP address of the miner to check.")
     parser.add_argument("--scan", dest="scan_range", help="Scan a network range in CIDR notation (e.g., 192.168.1.0/24).")
