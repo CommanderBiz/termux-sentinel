@@ -1,0 +1,12 @@
+[Unit]
+Description=Sentinel Dashboard Streamlit App
+After=network.target
+
+[Service]
+ExecStart=/home/s3nok/termux-sentinel/venv/bin/python -m streamlit run /home/s3nok/termux-sentinel/app.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS false --server.enableXsrfProtection false
+WorkingDirectory=/home/s3nok/termux-sentinel
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/home/s3nok/termux-sentinel/serviceAccountKey.json"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,19 +1,16 @@
 import streamlit as st
 import firebase_admin
-from firebase_admin import credentials
-from firebase_admin import firestore
+from firebase_admin import credentials, firestore
 import os
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 def get_firestore_client():
-    """
-    Initializes and returns a Firestore client.
-    Handles service account key loading and potential errors.
-    """
     try:
-        # Use serviceAccountKey.json for authentication
         if not firebase_admin._apps:
-            cred = credentials.Certificate("serviceAccountKey.json")
+            # Change "serviceAccountKey.json" to the FULL path
+            # Example: "/home/your_username/termux-sentinel/serviceAccountKey.json"
+            key_path = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
+            cred = credentials.Certificate(key_path)
             firebase_admin.initialize_app(cred)
         db = firestore.client()
         return db

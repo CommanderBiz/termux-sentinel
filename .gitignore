@@ -7,4 +7,5 @@ __pycache__/
 serviceAccountKey.json
 *.env
 GEMINI.md
-GEMINI.md
+google-cloud-sdk
+streamlit.log
