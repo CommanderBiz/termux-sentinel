@@ -26,6 +26,7 @@ except Exception as e:
 def push_to_firebase(host, hashrate, cpu=None, ram=None):
     """Pushes stats to the Firestore 'miners' collection."""
     if not db:
+        print(f"[{datetime.datetime.now()}] FIREBASE: DB not connected. Skipping push for {host}.")
         return # Do nothing if Firebase is not connected
 
     doc_ref = db.collection("miners").document(host)
@@ -39,7 +40,12 @@ def push_to_firebase(host, hashrate, cpu=None, ram=None):
     if ram is not None:
         data["ram_usage"] = ram
         
-    doc_ref.set(data, merge=True)
+    try:
+        print(f"[{datetime.datetime.now()}] FIREBASE: Pushing update for {host}: {data}")
+        doc_ref.set(data, merge=True)
+        print(f"[{datetime.datetime.now()}] FIREBASE: Successfully pushed update for {host}.")
+    except Exception as e:
+        print(f"[{datetime.datetime.now()}] FIREBASE: ERROR pushing for {host}: {e}")
 
 
 def get_monero_hashrate(host="127.0.0.1", port=8000):
@@ -136,9 +142,7 @@ def scan_network(network_range, port, daemon_mode=False):
         print("---------------------")
 
 
-import sys
 if __name__ == "__main__":
-    print(f"DEBUG: sys.argv = {sys.argv}")
     parser = argparse.ArgumentParser(description="System and Monero miner status probe.")
     parser.add_argument("--host", help="Hostname or IP address of the miner to check.")
     parser.add_argument("--scan", dest="scan_range", help="Scan a network range in CIDR notation (e.g., 192.168.1.0/24).")
