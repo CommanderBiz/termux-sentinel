@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -57,6 +58,10 @@ def main():
             with col2:
                 cpu_usage = data.get('cpu_usage', 'N/A')
                 st.metric("CPU", f"{cpu_usage}%" if isinstance(cpu_usage, (int, float)) else cpu_usage)
+
+    time.sleep(30)
+    st.rerun()
+
 
 if __name__ == "__main__":
     main()
