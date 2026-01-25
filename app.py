@@ -1,6 +1,9 @@
 import streamlit as st
-from google.cloud import firestore
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
 import os
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 def get_firestore_client():
     """
@@ -8,13 +11,15 @@ def get_firestore_client():
     Handles service account key loading and potential errors.
     """
     try:
-        # Best practice: use environment variables for credentials
-        # Create a serviceAccountKey.json file and set the GOOGLE_APPLICATION_CREDENTIALS
-        # environment variable to point to it.
-        return firestore.Client()
+        # Use serviceAccountKey.json for authentication
+        if not firebase_admin._apps:
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        return db
     except Exception as e:
         st.error(f"An error occurred while connecting to Firestore: {e}")
-        st.info("Please make sure you have authenticated with Google Cloud CLI or have the `GOOGLE_APPLICATION_CREDENTIALS` environment variable set correctly.")
+        st.info("Please make sure the 'serviceAccountKey.json' file is in the root directory and is valid.")
         return None
 
 def main():
@@ -36,7 +41,7 @@ def main():
 
     # 2. Filtering Logic (now on the server-side)
     if view_option == "Online Only":
-        docs = miners_ref.where("status", "==", "Online").stream()
+        docs = miners_ref.where(filter=FieldFilter("status", "==", "Online")).stream()
     else:
         docs = miners_ref.stream()
 
