@@ -3,7 +3,7 @@ Description=Sentinel Probe Daemon
 After=network.target
 
 [Service]
-ExecStart=/home/s3nok/termux-sentinel/venv/bin/python /home/s3nok/termux-sentinel/probe.py --host 127.0.0.1 --scan 192.168.1.0/24 --port 8000
+ExecStart=/home/s3nok/termux-sentinel/venv/bin/python /home/s3nok/termux-sentinel/probe.py --host mini0 --p2pool-miner-address 48tqgAhkjCnV2AUoTc5QztTrKSn1KVzvcHJ931sV2zWRG5MbMoipXAUBdY3JLn7SMRDLmTCCwa64ZHFqnThAwwzK1RhJM7W --p2pool-network nano --port 8000
 WorkingDirectory=/home/s3nok/termux-sentinel
 Environment="GOOGLE_APPLICATION_CREDENTIALS=/home/s3nok/termux-sentinel/serviceAccountKey.json"
 Restart=always
