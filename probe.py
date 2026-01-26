@@ -75,7 +75,57 @@ def get_monero_hashrate(host="127.0.0.1", port=8000):
         return None
 
 
-def get_system_status(host, port):
+def get_p2pool_stats(miner_address, network="main"):
+    """
+    Queries the p2pool.observer API for a miner's stats using /api/miner_info/<address>.
+    """
+    if not miner_address:
+        return None, None, None
+
+    base_urls = {
+        "main": "https://p2pool.observer/",
+        "mini": "https://mini.p2pool.observer/",
+        "nano": "https://nano.p2pool.observer/",
+    }
+    base_url = base_urls.get(network, "https://p2pool.observer/")
+    api_url = f"{base_url}api/miner_info/{miner_address}"
+
+    try:
+        response = requests.get(api_url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Correctly parse the new data structure
+        shares_held = data.get('shares', [{}, {'shares': 'N/A'}])[1].get('shares')
+        blocks_found = "N/A"  # Not available in this endpoint
+        payouts_sent = "N/A" # Not available in this endpoint
+
+        return blocks_found, shares_held, payouts_sent
+    except (requests.exceptions.RequestException, IndexError) as e:
+        print(f"P2Pool: Error processing data from {base_url}: {e}")
+        return None, None, None
+
+
+def push_p2pool_to_firebase(miner_address, blocks_found, shares_held, payouts_sent):
+    """Pushes p2pool stats to the Firestore 'p2pool' collection."""
+    if not db:
+        return
+
+    doc_ref = db.collection("p2pool").document(miner_address)
+    data = {
+        "last_seen": datetime.datetime.now(datetime.timezone.utc),
+        "blocks_found": blocks_found,
+        "shares_held": shares_held,
+        "payouts_sent": payouts_sent
+    }
+    try:
+        doc_ref.set(data, merge=True)
+    except Exception as e:
+        pass # Silently fail
+
+
+
+def get_system_status(host, port, p2pool_miner_address=None, p2pool_network="main"):
     """Checks a single host and prints/pushes the status."""
     hashrate = get_monero_hashrate(host, port)
     
@@ -92,6 +142,11 @@ def get_system_status(host, port):
 
     # Push to cloud
     push_to_firebase(host, hashrate, cpu_usage, ram_usage)
+
+    if p2pool_miner_address:
+        blocks, shares, payouts = get_p2pool_stats(p2pool_miner_address, p2pool_network)
+        if blocks is not None:
+            push_p2pool_to_firebase(p2pool_miner_address, blocks, shares, payouts)
 
 
 def scan_network(network_range, port):
@@ -129,6 +184,8 @@ if __name__ == "__main__":
 
     # General arguments
     parser.add_argument("--port", type=int, default=8000, help="API port for the Monero miner(s). Default: 8000.")
+    parser.add_argument("--p2pool-miner-address", help="The Monero address of your p2pool miner.")
+    parser.add_argument("--p2pool-network", choices=["main", "mini", "nano"], default="main", help="The p2pool network to query (main, mini, or nano). Default: main.")
     
     args = parser.parse_args()
     
@@ -152,7 +209,7 @@ if __name__ == "__main__":
 
     elif args.host:
         print(f"--- Checking Host: {args.host} ---")
-        get_system_status(args.host, args.port)
+        get_system_status(args.host, args.port, args.p2pool_miner_address, args.p2pool_network)
         print("--- Check Complete ---")
 
     else:
