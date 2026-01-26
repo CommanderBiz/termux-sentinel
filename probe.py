@@ -24,20 +24,18 @@ db = None
 def initialize_firebase():
     """Initializes the Firebase connection if not already done."""
     global db
-    if db or not firebase_admin._apps:
-        try:
-            cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred)
-            db = firestore.client()
-            # print("Successfully connected to Firebase.")
-        except Exception as e:
-            db = None
-            # print(f"Warning: Could not connect to Firebase. {e}")
+    if firebase_admin._apps: # Clear existing apps if any
+        del firebase_admin._apps[firebase_admin._DEFAULT_APP_NAME]
+    try:
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+    except Exception as e:
+        db = None
 
 def push_to_firebase(host, hashrate, cpu=None, ram=None):
     """Pushes stats to the Firestore 'miners' collection."""
     if not db:
-        # print(f"[{datetime.datetime.now()}] FIREBASE: DB not connected. Skipping push for {host}.") # Removed debug
         return # Do nothing if Firebase is not connected
 
     doc_ref = db.collection("miners").document(host)
@@ -53,9 +51,7 @@ def push_to_firebase(host, hashrate, cpu=None, ram=None):
         
     try:
         doc_ref.set(data, merge=True)
-        # print(f"[{datetime.datetime.now()}] FIREBASE: Successfully pushed update for {host}.") # Removed debug
     except Exception as e:
-        # print(f"[{datetime.datetime.now()}] FIREBASE: ERROR pushing for {host}: {e}") # Removed debug
         pass # Silently fail for now, or log to a file if needed in the future
 
 
