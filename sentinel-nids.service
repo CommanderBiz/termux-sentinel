@@ -1,0 +1,12 @@
+[Unit]
+Description=Termux Sentinel NIDS Service
+After=network.target
+
+[Service]
+Type=simple
+User=s3nok
+ExecStart=/home/s3nok/termux-sentinel/venv/bin/python /home/s3nok/termux-sentinel/probe.py --nids --iface wlan0
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

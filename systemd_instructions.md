@@ -71,6 +71,41 @@ To use this service file:
     journalctl -u sentinel-probe.service -f
     ```
 
+## Sentinel NIDS Service (`sentinel-nids.service`)
+
+This service runs the Network Intrusion Detection System to monitor for threats like ARP spoofing. **This service must be run as root.**
+
+To use this service file:
+
+1.  **Move the service file:**
+    ```bash
+    sudo mv sentinel-nids.service /etc/systemd/system/
+    ```
+
+2.  **Reload `systemd` to pick up the new service:**
+    ```bash
+    sudo systemctl daemon-reload
+    ```
+
+3.  **Enable the service to start on boot:**
+    ```bash
+    sudo systemctl enable sentinel-nids.service
+    ```
+
+4.  **Start the service:**
+    ```bash
+    sudo systemctl start sentinel-nids.service
+    ```
+
+5.  **Check the status of the service:**
+    ```bash
+    sudo systemctl status sentinel-nids.service
+    ```
+    or to view logs:
+    ```bash
+    sudo journalctl -u sentinel-nids.service -f
+    ```
+
 ## On-demand Status Reports (`report_generator.py`)
 
 The `report_generator.py` script allows you to manually trigger a scan and push updates to Firebase. This is useful for immediate checks or specific debugging.
