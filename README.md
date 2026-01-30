@@ -1,5 +1,7 @@
 # 🛡️ Sentinel - Monero Miner Monitoring System
 
+![Sentinel Dashboard Example](sentinel_example.png)
+
 A comprehensive monitoring solution for Monero miners with local SQLite storage, P2Pool integration, and a beautiful Streamlit dashboard.
 
 ## ✨ Features
