@@ -11,7 +11,7 @@ Type=oneshot
 User=your_user
 Group=your_group
 WorkingDirectory=/path/to/sentinel
-ExecStart=/path/to/sentinel/venv/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address YOUR_P2POOL_WALLET_ADDRESS --p2pool-network mini
+ExecStart=/path/to/sentinel/venv/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address YOUR_P2POOL_WALLET_ADDRESS --p2pool-network nano
 
 # Optional: Add environment variables if needed
 # Environment="PATH=/usr/bin:/usr/local/bin"

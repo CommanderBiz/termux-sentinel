@@ -6,7 +6,7 @@ Configuration file for Sentinel monitoring system.
 import os
 
 # Database Configuration
-DB_PATH = os.path.join(os.path.dirname(__file__), "sentinel.db")
+DB_PATH = "/opt/sentinel-shared/sentinel.db"
 
 # Miner API Configuration
 DEFAULT_MINER_PORT = 8000
