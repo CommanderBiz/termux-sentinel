@@ -1,12 +1,24 @@
 [Unit]
-Description=Termux Sentinel NIDS Service
+Description=Sentinel NIDS - Network Intrusion Detection System
 After=network.target
 
 [Service]
 Type=simple
-User=s3nok
-ExecStart=/home/s3nok/termux-sentinel/venv/bin/python /home/s3nok/termux-sentinel/probe.py --nids --iface wlan0
+# NIDS requires root privileges to capture packets
+User=root
+WorkingDirectory=/home/s3nok/sentinel
+
+# Execute NIDS with specified network interface
+# IMPORTANT: Change wlan0 to your actual network interface (e.g., eth0, enp0s3)
+ExecStart=/usr/bin/python3 nids.py --iface eno1
+
+# Restart policy
 Restart=on-failure
+RestartSec=30
+
+# Security settings
+# Note: PrivateTmp and other restrictions are minimal since root is required
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

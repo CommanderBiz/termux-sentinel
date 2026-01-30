@@ -1,13 +1,24 @@
+# Example systemd service for Sentinel Probe
+# Copy to /etc/systemd/system/sentinel-probe.service
+# Modify paths and user as needed
+
 [Unit]
-Description=Sentinel Probe Daemon
+Description=Sentinel Miner Monitoring Probe
 After=network.target
 
 [Service]
-ExecStart=/home/s3nok/termux-sentinel/venv/bin/python /home/s3nok/termux-sentinel/probe.py --host mini0 --p2pool-miner-address 48tqgAhkjCnV2AUoTc5QztTrKSn1KVzvcHJ931sV2zWRG5MbMoipXAUBdY3JLn7SMRDLmTCCwa64ZHFqnThAwwzK1RhJM7W --p2pool-network nano --port 8000
-WorkingDirectory=/home/s3nok/termux-sentinel
-Environment="GOOGLE_APPLICATION_CREDENTIALS=/home/s3nok/termux-sentinel/serviceAccountKey.json"
-Restart=always
-RestartSec=300
+Type=oneshot
+User=s3nok
+Group=s3nok
+WorkingDirectory=/home/s3nok/sentinel
+ExecStart=/usr/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address 48tqgAhkjCnV2AUoTc5QztTrKSn1KVzvcHJ931sV2zWRG5MbMoipXAUBdY3JLn7SMRDLmTCCwa64ZHFqnThAwwzK1RhJM7W
+
+# Optional: Add environment variables if needed
+# Environment="PATH=/usr/bin:/usr/local/bin"
+
+# Security settings (optional but recommended)
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

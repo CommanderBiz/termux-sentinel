@@ -1,94 +1,225 @@
 #!/usr/bin/env python3
+"""
+Network Intrusion Detection System (NIDS) for Sentinel.
+Monitors network traffic for security threats and stores alerts in local database.
+"""
 
 from scapy.all import sniff, ARP
 import datetime
+import argparse
+import sys
 
-import firebase_admin
-from firebase_admin import credentials, firestore
+# --- Configuration ---
+from database import SentinelDB
 
-# --- Firebase Initialization (similar to probe.py) ---
-try:
-    # This assumes serviceAccountKey.json is in the same directory
-    cred = credentials.Certificate("serviceAccountKey.json")
-    # Avoid re-initializing if it's already done by another script
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
-    db = firestore.client()
-except Exception as e:
-    db = None
-    print(f"NIDS: Warning: Could not connect to Firebase. {e}")
-# ---------------------------------------------------------
-
-
-def push_alert_to_firebase(alert_type, details):
-    """Pushes a security alert to the Firestore 'alerts' collection."""
-    if not db:
-        print(f"NIDS: Firebase DB not connected. Skipping alert: {alert_type}")
-        return
-
-    doc_ref = db.collection("alerts").document()
-    data = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc),
-        "type": alert_type,
-        "details": details,
-        "acknowledged": False # For future use in the dashboard
-    }
-    try:
-        doc_ref.set(data)
-        print(f"NIDS: Successfully pushed '{alert_type}' alert to Firebase.")
-    except Exception as e:
-        print(f"NIDS: ERROR pushing alert: {e}")
-
-
-# --- Intrusion Detection Logic ---
+# Initialize database
+db = SentinelDB()
 
 # In-memory store to track MAC addresses for IPs
 arp_table = {}
 
+
+def push_alert(alert_type: str, details: str, severity: str = "medium", 
+               source_ip: str = None, source_mac: str = None):
+    """
+    Stores a security alert in the local database.
+    
+    Args:
+        alert_type: Type of security alert (e.g., "ARP Spoofing")
+        details: Detailed description of the alert
+        severity: Alert severity level (low, medium, high, critical)
+        source_ip: Source IP address if applicable
+        source_mac: Source MAC address if applicable
+    """
+    try:
+        db.add_alert(alert_type, details, severity, source_ip, source_mac)
+        print(f"NIDS: Successfully stored '{alert_type}' alert in database.")
+    except Exception as e:
+        print(f"NIDS: ERROR storing alert: {e}")
+
+
 def arp_spoof_detector(packet):
     """
     Analyzes ARP packets to detect potential ARP spoofing attacks.
+    
+    ARP spoofing is detected when:
+    - An IP address that was previously associated with one MAC address
+      suddenly appears with a different MAC address
+    
+    This can indicate:
+    - Legitimate device replacement/update
+    - DHCP reassignment
+    - Man-in-the-middle attack attempt (ARP spoofing)
     """
-    if ARP in packet and packet[ARP].op in (1, 2): # ARP Request or Reply
+    if ARP in packet and packet[ARP].op in (1, 2):  # ARP Request or Reply
         src_ip = packet[ARP].psrc
         src_mac = packet[ARP].hwsrc
 
         if src_ip in arp_table and arp_table[src_ip] != src_mac:
-            # Potential ARP spoofing!
+            # Potential ARP spoofing detected!
             alert_details = (
                 f"Potential ARP Spoofing Detected!\n"
                 f"IP Address: {src_ip}\n"
-                f"Original MAC: {arp_table[src_ip]}\n"
-                f"New (Suspicious) MAC: {src_mac}"
+                f"Previous MAC: {arp_table[src_ip]}\n"
+                f"New MAC (Suspicious): {src_mac}\n\n"
+                f"This could indicate:\n"
+                f"- Man-in-the-middle attack attempt\n"
+                f"- Legitimate device change\n"
+                f"- DHCP reassignment\n\n"
+                f"Recommended Action: Investigate this host immediately."
             )
-            print(f"\n--- NIDS ALERT ---\n{alert_details}\n------------------\n")
-            push_alert_to_firebase("ARP Spoofing", alert_details)
+            
+            print(f"\n{'='*60}")
+            print(f"🚨 NIDS SECURITY ALERT 🚨")
+            print(f"{'='*60}")
+            print(alert_details)
+            print(f"{'='*60}\n")
+            
+            # Store alert in database with high severity
+            push_alert(
+                alert_type="ARP Spoofing",
+                details=alert_details,
+                severity="high",
+                source_ip=src_ip,
+                source_mac=src_mac
+            )
         
-        # Update the table with the latest mapping
+        # Update the ARP table with the latest mapping
         arp_table[src_ip] = src_mac
 
 
 def start_nids_sniffer(interface=None):
     """
-    Starts the network sniffer to monitor for threats.
+    Starts the network sniffer to monitor for security threats.
     
     Args:
-        interface (str, optional): The network interface to sniff on. 
-                                   If None, Scapy will try to find the best one.
+        interface: Network interface to monitor (e.g., eth0, wlan0)
+                  If None, Scapy will attempt to select the best interface
+    
+    Note:
+        This function requires root/administrator privileges to capture packets.
     """
-    print("NIDS: Starting network sniffer...")
+    print("="*60)
+    print("🛡️  SENTINEL NIDS - Network Intrusion Detection System")
+    print("="*60)
+    print(f"Starting network sniffer...")
+    
+    if interface:
+        print(f"Monitoring interface: {interface}")
+    else:
+        print(f"Monitoring default interface (auto-detected)")
+    
+    print(f"Detection modes enabled:")
+    print(f"  ✓ ARP Spoofing Detection")
+    print(f"  ✓ Alert logging to SQLite database")
+    print(f"\nPress Ctrl+C to stop monitoring...")
+    print("="*60 + "\n")
+    
     try:
-        # We can add more filters and handlers here later
-        sniff(filter="arp", prn=arp_spoof_detector, store=0, iface=interface)
-        print("NIDS: Sniffer stopped.")
+        # Monitor ARP traffic for spoofing attacks
+        # We can add more filters and detection methods here later
+        sniff(
+            filter="arp",
+            prn=arp_spoof_detector,
+            store=0,
+            iface=interface
+        )
+        print("\nNIDS: Sniffer stopped gracefully.")
+        
+    except PermissionError:
+        print("\n❌ ERROR: Permission denied.")
+        print("NIDS requires root/administrator privileges to capture network packets.")
+        print("Please run with: sudo python3 nids.py")
+        sys.exit(1)
+        
+    except KeyboardInterrupt:
+        print("\n\n⏹  NIDS monitoring stopped by user.")
+        print("All alerts have been saved to the database.")
+        
     except Exception as e:
-        print(f"NIDS: An error occurred with the sniffer: {e}")
-        print("NIDS: Please ensure you are running this script with root privileges.")
+        print(f"\n❌ NIDS: An error occurred: {e}")
+        print("Please ensure:")
+        print("  1. You are running with root privileges (sudo)")
+        print("  2. The network interface exists and is active")
+        print("  3. Scapy is properly installed (pip install scapy)")
+        sys.exit(1)
+
+
+def view_recent_alerts(limit=10):
+    """Display recent alerts from the database."""
+    try:
+        alerts = db.get_alerts(limit=limit)
+        
+        if not alerts:
+            print("No alerts found in database.")
+            return
+        
+        print(f"\n{'='*60}")
+        print(f"📋 Recent Security Alerts (Last {limit})")
+        print(f"{'='*60}\n")
+        
+        for alert in alerts:
+            ack_status = "✓ Acknowledged" if alert['acknowledged'] else "⚠ New"
+            severity_emoji = {
+                'low': '🟢',
+                'medium': '🟡',
+                'high': '🔴',
+                'critical': '🔴🔴'
+            }.get(alert['severity'], '⚪')
+            
+            print(f"{severity_emoji} Alert ID: {alert['id']} - {ack_status}")
+            print(f"   Type: {alert['type']}")
+            print(f"   Time: {alert['timestamp']}")
+            print(f"   Severity: {alert['severity'].upper()}")
+            
+            if alert['source_ip']:
+                print(f"   Source IP: {alert['source_ip']}")
+            if alert['source_mac']:
+                print(f"   Source MAC: {alert['source_mac']}")
+            
+            print(f"   Details: {alert['details'][:100]}...")
+            print()
+        
+    except Exception as e:
+        print(f"Error retrieving alerts: {e}")
 
 
 if __name__ == "__main__":
-    # This allows running the NIDS independently for testing
-    print("Running NIDS in standalone mode (for testing).")
-    print("NOTE: This requires root privileges to capture network packets.")
-    # You might need to specify the interface, e.g., "eth0" or "wlan0"
-    start_nids_sniffer()
+    parser = argparse.ArgumentParser(
+        description="""Sentinel NIDS - Network Intrusion Detection System
+        
+Monitors network traffic for security threats including:
+  • ARP Spoofing attacks
+  • Suspicious network behavior
+  
+All alerts are stored in the local SQLite database for review in the dashboard.
+        """,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    
+    parser.add_argument(
+        "--iface",
+        help="Network interface to monitor (e.g., eth0, wlan0, enp0s3)"
+    )
+    
+    parser.add_argument(
+        "--view-alerts",
+        action="store_true",
+        help="View recent alerts from the database instead of starting monitoring"
+    )
+    
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Number of alerts to display when using --view-alerts (default: 10)"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.view_alerts:
+        view_recent_alerts(limit=args.limit)
+    else:
+        print("NOTE: This script requires root privileges to capture network packets.")
+        print("If you get permission errors, run with: sudo python3 nids.py\n")
+        start_nids_sniffer(interface=args.iface)
