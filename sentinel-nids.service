@@ -10,7 +10,7 @@ WorkingDirectory=/home/s3nok/sentinel
 
 # Execute NIDS with specified network interface
 # IMPORTANT: Change wlan0 to your actual network interface (e.g., eth0, enp0s3)
-ExecStart=/usr/bin/python3 nids.py --iface eno1
+ExecStart=/home/s3nok/sentinel/venv/bin/python3 nids.py --iface eno1
 
 # Restart policy
 Restart=on-failure

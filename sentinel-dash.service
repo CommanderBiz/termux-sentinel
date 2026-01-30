@@ -9,7 +9,7 @@ Group=s3nok
 WorkingDirectory=/home/s3nok/sentinel
 
 # Execute streamlit with proper options
-ExecStart=/usr/bin/python3 -m streamlit run app.py \
+ExecStart=/home/s3nok/sentinel/venv/bin/python3 -m streamlit run app.py \
     --server.port 8501 \
     --server.address 0.0.0.0 \
     --server.headless true \

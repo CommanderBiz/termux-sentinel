@@ -11,7 +11,7 @@ Type=oneshot
 User=s3nok
 Group=s3nok
 WorkingDirectory=/home/s3nok/sentinel
-ExecStart=/usr/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address 48tqgAhkjCnV2AUoTc5QztTrKSn1KVzvcHJ931sV2zWRG5MbMoipXAUBdY3JLn7SMRDLmTCCwa64ZHFqnThAwwzK1RhJM7W
+ExecStart=/home/s3nok/sentinel/venv/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address 48tqgAhkjCnV2AUoTc5QztTrKSn1KVzvcHJ931sV2zWRG5MbMoipXAUBdY3JLn7SMRDLmTCCwa64ZHFqnThAwwzK1RhJM7W --p2pool-network mini
 
 # Optional: Add environment variables if needed
 # Environment="PATH=/usr/bin:/usr/local/bin"
