@@ -37,6 +37,12 @@ class SentinelDB:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
+            # Enable WAL mode for better concurrent access
+            # This is especially important when sharing DB over network (NFS/SMB)
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")  # Wait up to 5 seconds if locked
+            cursor.execute("PRAGMA synchronous=NORMAL")  # Balance safety and speed
+            
             # Miners table - stores miner status and stats
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS miners (

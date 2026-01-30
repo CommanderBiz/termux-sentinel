@@ -86,8 +86,9 @@ def get_p2pool_stats(miner_address: str, network: str = "main") -> Tuple[str, in
     base_url = config.P2POOL_NETWORKS.get(network, config.P2POOL_NETWORKS["main"])
     
     try:
-        # 1. Get Miner Info for Total Shares (Index 1)
+        # 1. Get Miner Info for Total Shares
         info_url = f"{base_url}api/miner_info/{miner_address}"
+        print(f"  Querying: {info_url}")
         info_resp = requests.get(info_url, timeout=config.P2POOL_API_TIMEOUT)
         info_resp.raise_for_status()
         info_data = info_resp.json()
@@ -95,9 +96,21 @@ def get_p2pool_stats(miner_address: str, network: str = "main") -> Tuple[str, in
         shares_data = info_data.get('shares', [])
         total_shares = 0
         total_uncles = 0
+        
+        print(f"  Shares data array length: {len(shares_data)}")
+        
+        # Index 0 typically contains shares in current window (reported by P2Pool)
+        # We'll verify this ourselves by manually counting below
+        if len(shares_data) > 0:
+            api_shares_in_window = shares_data[0].get('shares', 0)
+            print(f"  P2Pool reports shares in window: {api_shares_in_window}")
+        
+        # Index 1 typically contains total/all-time shares
         if len(shares_data) > 1:
             total_shares = shares_data[1].get('shares', 0)
             total_uncles = shares_data[1].get('uncles', 0)
+            print(f"  Total shares (all-time): {total_shares}")
+            print(f"  Total uncles (all-time): {total_uncles}")
         
         # 2. Get Pool Height for Window Calculation
         window_size = config.P2POOL_WINDOW_SIZE
@@ -109,46 +122,74 @@ def get_p2pool_stats(miner_address: str, network: str = "main") -> Tuple[str, in
         ls_data = ls_resp.json()
         
         if not ls_data:
-            print(f"Warning: No shares found on {network} network")
-            return "N/A", total_shares, "N/A", 0, 0, total_shares
+            print(f"  Warning: No shares found on {network} network")
+            # Return what we have from miner_info - use 0 for active shares since we can't verify
+            return "N/A", 0, "N/A", 0, 0, total_shares
             
         current_height = ls_data[0].get('side_height', 0)
+        print(f"  Current pool height: {current_height}")
+        print(f"  PPLNS window size: {window_size}")
         
-        # 3. Get Miner's Recent Shares to count active ones
+        # 3. Get Miner's Recent Shares to count active ones manually
         miner_shares_url = f"{base_url}api/shares?miner={miner_address}"
+        print(f"  Querying: {miner_shares_url}")
         ms_resp = requests.get(miner_shares_url, timeout=config.P2POOL_API_TIMEOUT)
         ms_resp.raise_for_status()
         miner_shares = ms_resp.json()
+        
+        print(f"  Found {len(miner_shares)} total share(s) for this miner")
         
         active_shares = 0
         active_uncles = 0
         window_start = current_height - window_size
         
+        print(f"  Window range: {window_start} to {current_height}")
+        
         for share in miner_shares:
-            if share.get('side_height', 0) >= window_start:
+            share_height = share.get('side_height', 0)
+            is_uncle = share.get('uncle', False)
+            
+            if share_height >= window_start:
                 active_shares += 1
+                if is_uncle:
+                    active_uncles += 1
+                print(f"    ✓ Share at height {share_height} is in window{' (uncle)' if is_uncle else ''}")
             else:
                 # Shares are sorted by height desc, so we can stop
+                print(f"    ✗ Share at height {share_height} is outside window (too old)")
                 break
 
-        blocks_found = "N/A"
-        payouts_sent = "N/A"
+        blocks_found = "N/A"  # Would need to query blocks API
+        payouts_sent = "N/A"  # Would need to query payouts API
 
-        return blocks_found, total_shares, payouts_sent, active_shares, active_uncles, total_shares
+        print(f"  ✅ Active shares in window: {active_shares}")
+        print(f"  ✅ Active uncles in window: {active_uncles}")
+        print(f"  ✅ Total all-time shares: {total_shares}")
+
+        # Return values explanation:
+        # - blocks_found: Number of blocks found (N/A for now, would need blocks API)
+        # - shares_held: Same as active_shares (shares currently in PPLNS window)
+        # - payouts_sent: Number of payouts (N/A for now, would need payouts API)
+        # - active_shares: Shares in current PPLNS window (manually verified)
+        # - active_uncles: Uncle blocks in current PPLNS window
+        # - total_shares: All valid shares ever found
+        return blocks_found, active_shares, payouts_sent, active_shares, active_uncles, total_shares
         
     except requests.exceptions.Timeout:
-        print(f"Warning: Timeout querying P2Pool API for {network} network")
+        print(f"  ❌ Timeout querying P2Pool API for {network} network")
         return None, None, None, None, None, None
     except requests.exceptions.RequestException as e:
-        print(f"Warning: Error querying P2Pool API: {e}")
+        print(f"  ❌ Error querying P2Pool API: {e}")
         return None, None, None, None, None, None
     except Exception as e:
-        print(f"Error: Unexpected error processing P2Pool data from {base_url}: {e}")
+        print(f"  ❌ Unexpected error processing P2Pool data from {base_url}: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None, None, None, None, None
 
 
 def get_system_status(host: str, port: int, p2pool_miner_address: Optional[str] = None, 
-                     p2pool_network: str = "main"):
+                     p2pool_network: str = "main", custom_name: Optional[str] = None):
     """
     Checks a single host and stores the status in the database.
     
@@ -157,24 +198,44 @@ def get_system_status(host: str, port: int, p2pool_miner_address: Optional[str] 
         port: Miner API port
         p2pool_miner_address: Optional P2Pool wallet address
         p2pool_network: P2Pool network type
+        custom_name: Custom name to use instead of auto-detected hostname
     """
     print(f"Checking {host}...")
+    
+    # Detect if this is a local check
+    is_local = host in ("127.0.0.1", "localhost")
+    
+    # Determine what name to use in the database
+    if custom_name:
+        # User provided a custom name - use it
+        db_host = custom_name
+        print(f"  Using custom name: {custom_name}")
+    elif is_local:
+        # Local check without custom name - use actual hostname
+        import socket
+        actual_hostname = socket.gethostname()
+        db_host = actual_hostname
+        print(f"  Local host detected, using hostname: {actual_hostname}")
+    else:
+        # Remote check - use the IP/hostname as-is
+        db_host = host
+    
     hashrate = get_monero_hashrate(host, port)
     
     cpu_usage = None
     ram_usage = None
 
     # Only get system stats for localhost
-    if host == "127.0.0.1" or host == "localhost":
+    if is_local:
         try:
             cpu_usage = psutil.cpu_percent(interval=1)
             ram_usage = psutil.virtual_memory().percent
         except Exception as e:
             print(f"Warning: Could not get system stats: {e}")
 
-    # Store in database
+    # Store in database using determined hostname
     try:
-        db.upsert_miner(host, hashrate, cpu_usage, ram_usage)
+        db.upsert_miner(db_host, hashrate, cpu_usage, ram_usage)
         
         if hashrate is not None:
             print(f"  ✓ Online - Hashrate: {hashrate:.2f} H/s")
@@ -187,8 +248,9 @@ def get_system_status(host: str, port: int, p2pool_miner_address: Optional[str] 
 
     # Handle P2Pool stats if requested
     if p2pool_miner_address:
-        print(f"Fetching P2Pool stats for {p2pool_network} network...")
-        blocks, shares_24h, payouts, window, uncles, total = get_p2pool_stats(
+        print(f"\nFetching P2Pool stats for {p2pool_network} network...")
+        print(f"Miner address: {p2pool_miner_address}")
+        blocks, shares_24h, payouts, active_in_window, uncles, total = get_p2pool_stats(
             p2pool_miner_address, p2pool_network
         )
         
@@ -196,11 +258,18 @@ def get_system_status(host: str, port: int, p2pool_miner_address: Optional[str] 
             try:
                 db.upsert_p2pool_stats(
                     p2pool_miner_address, blocks, shares_24h, payouts, 
-                    window, uncles, total
+                    active_in_window, uncles, total
                 )
-                print(f"  Active Shares: {window} | Total: {total}")
+                print(f"\n  ✅ P2Pool stats stored successfully")
+                print(f"  📊 Summary:")
+                print(f"     Active in Window: {active_in_window}")
+                print(f"     Total Shares: {total}")
+                if uncles > 0:
+                    print(f"     Uncles: {uncles}")
             except Exception as e:
-                print(f"Error: Failed to store P2Pool data: {e}")
+                print(f"  ❌ Error: Failed to store P2Pool data: {e}")
+        else:
+            print(f"  ⚠️  Could not fetch P2Pool stats - check address and network")
 
 
 def scan_network(network_range: str, port: int):
@@ -294,6 +363,9 @@ Modes of Operation:
     # General arguments
     parser.add_argument("--port", type=int, default=config.DEFAULT_MINER_PORT,
                        help=f"API port for the Monero miner(s). Default: {config.DEFAULT_MINER_PORT}.")
+    parser.add_argument("--name",
+                       help="Custom name for this host (e.g., 'mining-rig-1', 'laptop'). "
+                            "If not specified, hostname will be auto-detected for localhost.")
     parser.add_argument("--p2pool-miner-address", 
                        help="The Monero address of your p2pool miner.")
     parser.add_argument("--p2pool-network", choices=["main", "mini", "nano"], 
@@ -325,7 +397,7 @@ Modes of Operation:
 
     elif args.host:
         print(f"--- Checking Host: {args.host} ---")
-        get_system_status(args.host, args.port, args.p2pool_miner_address, args.p2pool_network)
+        get_system_status(args.host, args.port, args.p2pool_miner_address, args.p2pool_network, args.name)
         print("--- Check Complete ---")
 
     else:
