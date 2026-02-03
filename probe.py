@@ -159,21 +159,60 @@ def get_p2pool_stats(miner_address: str, network: str = "main") -> Tuple[str, in
                 print(f"    ✗ Share at height {share_height} is outside window (too old)")
                 break
 
-        blocks_found = "N/A"  # Would need to query blocks API
-        payouts_sent = "N/A"  # Would need to query payouts API
+        # 4. Get blocks found by this miner
+        blocks_found = 0
+        try:
+            blocks_url = f"{base_url}api/blocks?miner={miner_address}"
+            blocks_resp = requests.get(blocks_url, timeout=config.P2POOL_API_TIMEOUT)
+            blocks_resp.raise_for_status()
+            blocks_data = blocks_resp.json()
+            blocks_found = len(blocks_data)
+            print(f"  Blocks found by miner: {blocks_found}")
+        except Exception as e:
+            print(f"  ⚠️  Could not get blocks data: {e}")
+            blocks_found = "N/A"
+
+        # 5. Get payouts received by this miner
+        payouts_count = 0
+        latest_payout = None
+        total_payout_amount = 0
+        try:
+            payouts_url = f"{base_url}api/payouts?miner={miner_address}"
+            print(f"  Querying: {payouts_url}")
+            payouts_resp = requests.get(payouts_url, timeout=config.P2POOL_API_TIMEOUT)
+            payouts_resp.raise_for_status()
+            payouts_data = payouts_resp.json()
+            
+            payouts_count = len(payouts_data)
+            print(f"  Total payouts received: {payouts_count}")
+            
+            if payouts_count > 0:
+                # Get most recent payout info
+                latest_payout = payouts_data[0]
+                latest_amount = latest_payout.get('value', 0) / 1e12  # Convert from atomic units to XMR
+                latest_time = latest_payout.get('timestamp', 'Unknown')
+                print(f"  Latest payout: {latest_amount:.6f} XMR at {latest_time}")
+                
+                # Calculate total payout amount (optional, may be slow for many payouts)
+                if payouts_count <= 100:  # Only calculate if reasonable number
+                    total_payout_amount = sum(p.get('value', 0) for p in payouts_data) / 1e12
+                    print(f"  Total paid out: {total_payout_amount:.6f} XMR")
+        except Exception as e:
+            print(f"  ⚠️  Could not get payouts data: {e}")
+            payouts_count = "N/A"
 
         print(f"  ✅ Active shares in window: {active_shares}")
         print(f"  ✅ Active uncles in window: {active_uncles}")
         print(f"  ✅ Total all-time shares: {total_shares}")
 
         # Return values explanation:
-        # - blocks_found: Number of blocks found (N/A for now, would need blocks API)
+        # - blocks_found: Number of blocks this miner found
         # - shares_held: Same as active_shares (shares currently in PPLNS window)
-        # - payouts_sent: Number of payouts (N/A for now, would need payouts API)
+        # - payouts_sent: Number of payouts received
         # - active_shares: Shares in current PPLNS window (manually verified)
         # - active_uncles: Uncle blocks in current PPLNS window
         # - total_shares: All valid shares ever found
-        return blocks_found, active_shares, payouts_sent, active_shares, active_uncles, total_shares
+        return blocks_found, active_shares, payouts_count, active_shares, active_uncles, total_shares
         
     except requests.exceptions.Timeout:
         print(f"  ❌ Timeout querying P2Pool API for {network} network")
@@ -403,3 +442,4 @@ Modes of Operation:
     else:
         parser.print_help()
         sys.exit(1)
+        

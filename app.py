@@ -155,29 +155,44 @@ def display_p2pool_stats(db: SentinelDB):
                 st.write(f"**Miner Address:** `{stat['miner_address']}`")
                 st.caption(f"Last seen: {format_timestamp(stat.get('last_seen'))}")
                 
+                # First row: Shares and blocks
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
                     st.metric(
                         "Active Shares", 
                         stat.get("active_shares", 0),
-                        help="Shares in current PPLNS window"
+                        help="Shares in current PPLNS window (2160 blocks)"
                     )
                 with col2:
                     st.metric(
                         "Total Shares", 
                         stat.get("total_shares", 0),
-                        help="Total valid shares found"
+                        help="All valid shares ever found"
                     )
                 with col3:
                     st.metric(
                         "Active Uncles", 
                         stat.get("active_uncles", 0),
-                        help="Uncle blocks in current window"
+                        help="Uncle blocks in current PPLNS window"
                     )
                 with col4:
-                    payouts = stat.get("payouts_sent", "N/A")
-                    st.metric("Payouts", payouts)
+                    blocks = stat.get("blocks_found", "N/A")
+                    if blocks != "N/A" and blocks > 0:
+                        st.metric("Blocks Found", blocks, help="Blocks found by this miner 🎉")
+                    else:
+                        st.metric("Blocks Found", blocks if blocks != "N/A" else 0, help="Blocks found by this miner")
+                
+                # Second row: Payouts (prominent)
+                st.divider()
+                payouts = stat.get("payouts_sent", "N/A")
+                
+                if payouts != "N/A" and payouts > 0:
+                    st.success(f"💰 **Total Payouts Received: {payouts}**")
+                elif payouts == 0:
+                    st.info("💰 No payouts yet. Keep mining!")
+                else:
+                    st.info("💰 Payout data unavailable")
                     
     except Exception as e:
         st.error(f"Error loading P2Pool stats: {e}")
@@ -217,12 +232,28 @@ def display_miner_stats(db: SentinelDB, view_option: str):
             status = miner.get("status", "Offline")
             
             with st.container(border=True):
+                # Header row with host name and delete button
+                col_header, col_delete = st.columns([5, 1])
+                with col_header:
+                    st.write(f"**Host:** {miner['host']}")
+                    st.caption(f"Last seen: {format_timestamp(miner.get('last_seen'))}")
+                with col_delete:
+                    if st.button("🗑️", key=f"delete_{miner['host']}", help="Delete this host"):
+                        # Delete from database
+                        import sqlite3
+                        conn = sqlite3.connect(config.DB_PATH)
+                        cursor = conn.cursor()
+                        cursor.execute('DELETE FROM miners WHERE host = ?', (miner['host'],))
+                        cursor.execute('DELETE FROM miner_history WHERE host = ?', (miner['host'],))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Deleted {miner['host']}")
+                        st.rerun()
+                
+                # Stats row
                 col1, col2, col3 = st.columns([2, 1, 1])
                 
                 with col1:
-                    st.write(f"**Host:** {miner['host']}")
-                    st.caption(f"Last seen: {format_timestamp(miner.get('last_seen'))}")
-                    
                     if status == "Online":
                         hashrate = miner.get("hashrate", 0) or 0
                         st.success(f"✓ Online - Hashrate: {hashrate:.2f} H/s")
@@ -412,3 +443,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

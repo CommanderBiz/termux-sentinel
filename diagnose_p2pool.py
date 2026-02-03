@@ -162,6 +162,40 @@ def diagnose_p2pool(miner_address, network="main"):
         print(f"  ❌ Error: {e}")
     print()
     
+    # Test 6: Check payouts
+    print("📋 Test 6: Payouts")
+    payouts_url = f"{base_url}api/payouts?miner={miner_address}"
+    print(f"  URL: {payouts_url}")
+    
+    try:
+        payouts_resp = requests.get(payouts_url, timeout=10)
+        if payouts_resp.status_code == 200:
+            payouts = payouts_resp.json()
+            print(f"  ✅ Found {len(payouts)} payout(s)")
+            
+            if payouts:
+                print(f"\n  💰 Recent Payouts:")
+                for i, payout in enumerate(payouts[:5], 1):  # Show first 5
+                    amount = payout.get('value', 0) / 1e12  # Convert to XMR
+                    timestamp = payout.get('timestamp', 'N/A')
+                    height = payout.get('height', 'N/A')
+                    print(f"    {i}. Amount: {amount:.8f} XMR | Time: {timestamp} | Height: {height}")
+                
+                if len(payouts) > 5:
+                    print(f"    ... and {len(payouts) - 5} more")
+                    
+                # Calculate total
+                total_xmr = sum(p.get('value', 0) for p in payouts) / 1e12
+                print(f"\n  💎 Total Paid: {total_xmr:.8f} XMR")
+            else:
+                print(f"  ⚠️  No payouts found yet")
+                print(f"  This is normal if you haven't received a payout yet.")
+        else:
+            print(f"  ❌ API returned status {payouts_resp.status_code}")
+    except Exception as e:
+        print(f"  ❌ Error: {e}")
+    print()
+    
     print("="*70)
     print("🔍 Diagnostic Complete")
     print("="*70)
@@ -196,3 +230,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     diagnose_p2pool(args.address, args.network)
+    
