@@ -60,6 +60,9 @@ echo -e "   Home: ${GREEN}$HOME${NC}"
 echo ""
 sleep 1
 
+# Get the original directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Function to prompt yes/no
 prompt_yes_no() {
     while true; do
@@ -91,7 +94,9 @@ echo ""
 INSTALL_DIR=$(prompt_with_default "Where should Sentinel be installed?" "$HOME/sentinel")
 echo ""
 
-if [ -d "$INSTALL_DIR" ]; then
+if [ "$INSTALL_DIR" = "$SCRIPT_DIR" ]; then
+    echo -e "${GREEN}✓ Installing in current directory: $INSTALL_DIR${NC}"
+elif [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}⚠️  Directory $INSTALL_DIR already exists!${NC}"
     if prompt_yes_no "Do you want to overwrite it?"; then
         echo "Backing up existing installation..."
@@ -162,8 +167,12 @@ echo ""
 # Check if files exist in current directory
 if [ -f "probe.py" ] && [ -f "app.py" ]; then
     echo -e "${GREEN}✓ Sentinel files found in current directory${NC}"
+elif [ -f "$SCRIPT_DIR/probe.py" ] && [ -f "$SCRIPT_DIR/app.py" ]; then
+    echo "Files found in script directory. Copying to installation folder..."
+    cp -r "$SCRIPT_DIR/"* "$INSTALL_DIR/" 2>/dev/null || true
+    echo -e "${GREEN}✓ Sentinel files copied to $INSTALL_DIR${NC}"
 else
-    echo "Sentinel files not found in current directory."
+    echo "Sentinel files not found in current directory or script directory."
     echo "Options:"
     echo "  1. Extract from downloaded archive"
     echo "  2. Clone from GitHub (when released)"
