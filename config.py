@@ -11,7 +11,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "sentinel.db")
 
 # Miner API Configuration
 DEFAULT_MINER_PORT = 18088
-MINER_API_TOKEN = "token123"
+MINER_API_TOKEN = ""
 MINER_API_TIMEOUT = 2  # seconds
 
 # P2Pool Configuration

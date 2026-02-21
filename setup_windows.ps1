@@ -305,7 +305,7 @@ if (Prompt-YesNo "Run test scan now?") {
     Write-Host ""
     Write-Host "Running test scan..."
     
-    $probeArgs = @("probe.py", "--host", "100.76.60.22", "--port", $minerPort)
+    $probeArgs = @("probe.py", "--host", "127.0.0.1", "--port", $minerPort)
     
     if ($useP2Pool) {
         $probeArgs += "--p2pool-miner-address"
@@ -344,7 +344,7 @@ if (Prompt-YesNo "Set up scheduled tasks?") {
     # Create scheduled task for probe
     Write-Host "Creating scheduled task for probe..."
     
-    $probeArgs = "-File `"$installDir\probe.py`" --host 100.76.60.22 --port $minerPort"
+    $probeArgs = "-File `"$installDir\probe.py`" --host 127.0.0.1 --port $minerPort"
     if ($useP2Pool) {
         $probeArgs += " --p2pool-miner-address $p2poolAddress --p2pool-network $p2poolNetwork"
     }
@@ -403,7 +403,7 @@ pause
     $probeContent = @"
 @echo off
 cd /d "$installDir"
-"$pythonCmd" probe.py --host 100.76.60.22 --port $minerPort
+"$pythonCmd" probe.py --host 127.0.0.1 --port $minerPort
 pause
 "@
     Set-Content -Path $probeBat -Value $probeContent
@@ -459,13 +459,13 @@ Write-Host "  • Double-click 'Sentinel Probe' shortcut"
 Write-Host "  OR"
 if ($useP2Pool) {
     Write-Host "  cd $installDir"
-    Write-Host "  $pythonCmd probe.py --host 100.76.60.22 --port $minerPort \"
+    Write-Host "  $pythonCmd probe.py --host 127.0.0.1 --port $minerPort \"
     Write-Host "    --p2pool-miner-address $p2poolAddress \"
     Write-Host "    --p2pool-network $p2poolNetwork"
 }
 else {
     Write-Host "  cd $installDir"
-    Write-Host "  $pythonCmd probe.py --host 100.76.60.22 --port $minerPort"
+    Write-Host "  $pythonCmd probe.py --host 127.0.0.1 --port $minerPort"
 }
 
 Write-Host ""
