@@ -1,0 +1,24 @@
+[Unit]
+Description=Sentinel NIDS - Network Intrusion Detection System
+After=network.target
+
+[Service]
+Type=simple
+# NIDS requires root privileges to capture packets
+User=root
+WorkingDirectory=/path/to/sentinel
+
+# Execute NIDS with specified network interface
+# IMPORTANT: Change wlan0 to your actual network interface (e.g., eth0, enp0s3)
+ExecStart=/path/to/sentinel/venv/bin/python3 nids.py --iface eno1
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+
+# Security settings
+# Note: PrivateTmp and other restrictions are minimal since root is required
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

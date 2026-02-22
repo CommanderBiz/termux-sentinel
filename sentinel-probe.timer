@@ -1,0 +1,15 @@
+# Example systemd timer for Sentinel Probe
+# Copy to /etc/systemd/system/sentinel-probe.timer
+# This will run the probe every 5 minutes
+
+[Unit]
+Description=Run Sentinel Probe every 5 minutes
+Requires=sentinel-probe.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

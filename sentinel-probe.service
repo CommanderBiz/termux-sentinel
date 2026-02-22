@@ -1,0 +1,24 @@
+# Example systemd service for Sentinel Probe
+# Copy to /etc/systemd/system/sentinel-probe.service
+# Modify paths and user as needed
+
+[Unit]
+Description=Sentinel Miner Monitoring Probe
+After=network.target
+
+[Service]
+Type=oneshot
+User=your_user
+Group=your_group
+WorkingDirectory=/path/to/sentinel
+ExecStart=/path/to/sentinel/venv/bin/python3 probe.py --host 127.0.0.1 --p2pool-miner-address YOUR_P2POOL_WALLET_ADDRESS --p2pool-network nano
+
+# Optional: Add environment variables if needed
+# Environment="PATH=/usr/bin:/usr/local/bin"
+
+# Security settings (optional but recommended)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

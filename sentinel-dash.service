@@ -1,0 +1,29 @@
+[Unit]
+Description=Sentinel Dashboard - Streamlit Monitoring Interface
+After=network.target
+
+[Service]
+Type=simple
+User=your_user
+Group=your_group
+WorkingDirectory=/path/to/sentinel
+
+# Execute streamlit with proper options
+ExecStart=/path/to/sentinel/venv/bin/python3 -m streamlit run app.py \
+    --server.port 8501 \
+    --server.address 0.0.0.0 \
+    --server.headless true \
+    --server.enableCORS false \
+    --server.enableXsrfProtection false
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security settings (optional but recommended)
+NoNewPrivileges=true
+PrivateTmp=true
+ReadOnlyPaths=/etc /usr
+
+[Install]
+WantedBy=multi-user.target
