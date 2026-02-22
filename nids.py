@@ -56,35 +56,56 @@ def arp_spoof_detector(packet):
         src_mac = packet[ARP].hwsrc
 
         if src_ip in arp_table and arp_table[src_ip] != src_mac:
-            # Potential ARP spoofing detected!
-            alert_details = (
-                f"Potential ARP Spoofing Detected!\n"
-                f"IP Address: {src_ip}\n"
-                f"Previous MAC: {arp_table[src_ip]}\n"
-                f"New MAC (Suspicious): {src_mac}\n\n"
-                f"This could indicate:\n"
-                f"- Man-in-the-middle attack attempt\n"
-                f"- Legitimate device change\n"
-                f"- DHCP reassignment\n\n"
-                f"Recommended Action: Investigate this host immediately."
-            )
+            # Potential ARP spoofing detected! Check DB to prevent spam
+            entry = db.get_arp_entry(src_ip, src_mac)
             
-            print(f"\n{'='*60}")
-            print(f"🚨 NIDS SECURITY ALERT 🚨")
-            print(f"{'='*60}")
-            print(alert_details)
-            print(f"{'='*60}\n")
+            # Check if we should alert (if we have never alerted, or if it's been > 24 hours)
+            should_alert = True
+            if entry and entry.get('last_alerted'):
+                try:
+                    last_alerted_str = entry['last_alerted']
+                    last_alerted = datetime.datetime.fromisoformat(last_alerted_str.replace('Z', '+00:00'))
+                    time_since_alert = datetime.datetime.now(datetime.timezone.utc) - last_alerted
+                    if time_since_alert.total_seconds() < 86400: # 24 hours
+                        should_alert = False
+                except Exception as e:
+                    print(f"NIDS: Error parsing timestamp: {e}")
             
-            # Store alert in database with high severity
-            push_alert(
-                alert_type="ARP Spoofing",
-                details=alert_details,
-                severity="high",
-                source_ip=src_ip,
-                source_mac=src_mac
-            )
+            if should_alert:
+                alert_details = (
+                    f"Potential ARP Spoofing Detected!\n"
+                    f"IP Address: {src_ip}\n"
+                    f"Previous MAC: {arp_table[src_ip]}\n"
+                    f"New MAC (Suspicious): {src_mac}\n\n"
+                    f"This could indicate:\n"
+                    f"- Man-in-the-middle attack attempt\n"
+                    f"- Legitimate device change\n"
+                    f"- DHCP reassignment\n\n"
+                    f"Recommended Action: Investigate this host immediately."
+                )
+                
+                print(f"\n{'='*60}")
+                print(f"🚨 NIDS SECURITY ALERT 🚨")
+                print(f"{'='*60}")
+                print(alert_details)
+                print(f"{'='*60}\n")
+                
+                # Store alert in database with high severity
+                push_alert(
+                    alert_type="ARP Spoofing",
+                    details=alert_details,
+                    severity="high",
+                    source_ip=src_ip,
+                    source_mac=src_mac
+                )
+            
+            # Record/Update the entry in the DB, marking alerted state
+            db.update_arp_entry(src_ip, src_mac, alerted=should_alert)
+        else:
+            # Normal ARP traffic, log it quietly to history
+            db.update_arp_entry(src_ip, src_mac, alerted=False)
         
-        # Update the ARP table with the latest mapping
+        # Update the memory ARP table with the latest mapping
         arp_table[src_ip] = src_mac
 
 

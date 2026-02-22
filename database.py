@@ -113,6 +113,19 @@ class SentinelDB:
                     source_mac TEXT
                 )
             """)
+
+            # ARP history table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS arp_history (
+                    ip TEXT NOT NULL,
+                    mac TEXT NOT NULL,
+                    first_seen TIMESTAMP NOT NULL,
+                    last_seen TIMESTAMP NOT NULL,
+                    last_alerted TIMESTAMP,
+                    PRIMARY KEY (ip, mac)
+                )
+            """)
+
             
             # Create indexes for better query performance
             cursor.execute("""
@@ -157,6 +170,22 @@ class SentinelDB:
         if 'total_payout_amount' not in columns:
             print("Migrating database: Adding total_payout_amount to p2pool_stats")
             cursor.execute("ALTER TABLE p2pool_stats ADD COLUMN total_payout_amount REAL")
+
+        # Create arp_history on existing databases
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='arp_history'")
+        if not cursor.fetchone():
+            print("Migrating database: Creating arp_history table")
+            cursor.execute("""
+                CREATE TABLE arp_history (
+                    ip TEXT NOT NULL,
+                    mac TEXT NOT NULL,
+                    first_seen TIMESTAMP NOT NULL,
+                    last_seen TIMESTAMP NOT NULL,
+                    last_alerted TIMESTAMP,
+                    PRIMARY KEY (ip, mac)
+                )
+            """)
+
     
     def upsert_miner(self, host: str, hashrate: Optional[float], 
                      cpu: Optional[float] = None, ram: Optional[float] = None):
@@ -373,3 +402,39 @@ class SentinelDB:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
+
+    def get_arp_entry(self, ip: str, mac: str) -> Optional[Dict[str, Any]]:
+        """Retrieve an ARP history entry."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM arp_history WHERE ip = ? AND mac = ?", (ip, mac))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def update_arp_entry(self, ip: str, mac: str, alerted: bool = False):
+        """Update or insert an ARP history entry. Sets last_alerted if alerted is True."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
+            
+            entry = self.get_arp_entry(ip, mac)
+            
+            if entry:
+                if alerted:
+                    cursor.execute("""
+                        UPDATE arp_history 
+                        SET last_seen = ?, last_alerted = ? 
+                        WHERE ip = ? AND mac = ?
+                    """, (timestamp, timestamp, ip, mac))
+                else:
+                    cursor.execute("""
+                        UPDATE arp_history 
+                        SET last_seen = ? 
+                        WHERE ip = ? AND mac = ?
+                    """, (timestamp, ip, mac))
+            else:
+                last_alerted = timestamp if alerted else None
+                cursor.execute("""
+                    INSERT INTO arp_history (ip, mac, first_seen, last_seen, last_alerted)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (ip, mac, timestamp, timestamp, last_alerted))
