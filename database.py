@@ -326,6 +326,15 @@ class SentinelDB:
             cursor.execute("DELETE FROM miner_history WHERE timestamp < ?", (cutoff,))
             cursor.execute("DELETE FROM p2pool_history WHERE timestamp < ?", (cutoff,))
             
+            # Clear old host info
+            cursor.execute("DELETE FROM miners WHERE last_seen < ?", (cutoff,))
+            
+            # Clear old alerts (including ARP alerts)
+            cursor.execute("DELETE FROM alerts WHERE timestamp < ?", (cutoff,))
+            
+            # Clear old arp_history
+            cursor.execute("DELETE FROM arp_history WHERE last_seen < ?", (cutoff,))
+            
             deleted_miner = cursor.rowcount
             
             print(f"Cleaned up {deleted_miner} old records from history tables.")

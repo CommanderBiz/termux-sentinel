@@ -406,6 +406,13 @@ def main():
     
     # Manual refresh button
     if st.sidebar.button("🔄 Refresh Now"):
+        import subprocess
+        with st.spinner("Triggering probe for fresh data..."):
+            try:
+                # Trigger sentinel-probe.timer by starting its service explicitly
+                subprocess.run(["systemctl", "start", "sentinel-probe.service"], capture_output=True, check=False)
+            except Exception as e:
+                st.sidebar.error(f"Failed to trigger probe: {e}")
         st.rerun()
     
     # Display database info
